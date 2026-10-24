@@ -22,7 +22,7 @@ swift run ConvertZZ       # 直接執行（開發用）
 ./scripts/build-app.sh    # 產生 build/ConvertZZ.app
 ```
 
-推送 `v*` 標籤（例如 `git tag v1.0.0 && git push --tags`）後，GitHub Actions 會自動建置並發佈 Release。
+發佈新版：修改 `VERSION` 檔案中的版本號並推到 main，GitHub Actions 會自動建立 `v<版本>` 標籤並發佈 Release。
 
 ## 授權
 GPL-3.0，與原專案相同。詞彙表來自原專案。
