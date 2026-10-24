@@ -19,6 +19,24 @@ final class ConvertZZCoreTests: XCTestCase {
         XCTAssertEqual(c.convert("abc 123", .toTraditional), "abc 123")
     }
 
+    /// macOS 內建轉換常出錯的詞
+    func testKnownSystemTransformMistakes() {
+        let cases = [
+            "干活": "幹活", "干脆": "乾脆", "干政": "干政", "乌干达": "烏干達", "很脏": "很髒",
+            "内脏": "內臟", "想象": "想像", "（注": "（註", "发现": "發現", "干干净净": "乾乾淨淨",
+            "发明了": "發明了", "斗争": "鬥爭", "饼干": "餅乾", "宽松": "寬鬆", "克扣": "剋扣",
+            "报道": "報導", "回避": "迴避", "冗余": "冗餘", "克什米尔": "喀什米爾", "加沙": "加薩",
+            "吕后": "呂后", "朴正熙": "朴正熙", "牵制": "牽制", "系统": "系統", "余杰": "余杰",
+            "征战": "征戰", "干嘛": "幹嘛", "干不下去": "幹不下去", "台面": "檯面", "轮回": "輪迴",
+            "我在这里等你": "我在這裡等你", "着急地看着": "著急地看著", "他用鼠标打开了网络": "他用滑鼠打開了網路",
+        ]
+        for (simp, trad) in cases {
+            XCTAssertEqual(Self.converter.convert(simp, .toTraditional), trad, simp)
+        }
+        XCTAssertEqual(Self.converter.convert("我們一起幹活", .toSimplified), "我们一起干活")
+        XCTAssertEqual(Self.converter.convert("乾淨的衣服", .toSimplified), "干净的衣服")
+    }
+
     func testDictionaryOnlyCSV() {
         let csv = "True\tSTPhrases\t后台\t0\t後臺\t0\r\nFalse\tSTPhrases\t测试\t0\tXX\t0\r\n"
         let c = ChineseConverter(csv: csv)

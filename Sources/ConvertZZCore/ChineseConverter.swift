@@ -43,9 +43,10 @@ public final class ChineseConverter {
             guard cols.count == 6, cols[0] == "True" else { continue }
             let s = cols[2], t = cols[4]
             guard !s.isEmpty, !t.isEmpty else { continue }
-            // 與原版相同：同一個 key 只取第一筆
-            if trad[s] == nil { trad[s] = t }
-            if simp[t] == nil { simp[t] = s }
+            // 與原版相同：同一個 key 只取第一筆。Type 以 "ST:" / "TS:" 開頭的詞條只用於單一方向
+            let type = cols[1]
+            if !type.hasPrefix("TS:"), trad[s] == nil { trad[s] = t }
+            if !type.hasPrefix("ST:"), simp[t] == nil { simp[t] = s }
         }
         toTrad = Self.makeTable(trad)
         toSimp = Self.makeTable(simp)
