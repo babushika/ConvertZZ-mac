@@ -149,7 +149,23 @@ public final class FileProcessor {
             }
             return
         }
-        guard options.convertContent, options.extensionSet.contains(ext) else { return }
+        guard options.convertContent else { return }
+        if OfficeConverter.supportedExtensions.contains(ext) {
+            do {
+                switch try OfficeConverter(converter: converter, direction: options.direction).process(fileAt: url) {
+                case .converted: log(ProcessLog(kind: .success, path: url.path, message: "Office 文件已轉換"))
+                case .unchanged: log(ProcessLog(kind: .unchanged, path: url.path, message: "內容不需轉換"))
+                }
+            } catch {
+                log(ProcessLog(kind: .failure, path: url.path, message: error.localizedDescription))
+            }
+            return
+        }
+        if OfficeConverter.legacyExtensions.contains(ext) {
+            log(ProcessLog(kind: .skipped, path: url.path, message: "舊版 Office 格式無法轉換，請先用 Word / Excel / PowerPoint 或 Pages 另存為 .\(ext)x"))
+            return
+        }
+        guard options.extensionSet.contains(ext) else { return }
         do {
             let data = try Data(contentsOf: url)
             let decoded: DecodedText?

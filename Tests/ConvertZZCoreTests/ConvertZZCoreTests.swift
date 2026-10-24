@@ -123,6 +123,50 @@ final class ConvertZZCoreTests: XCTestCase {
         XCTAssertEqual(TextEncoding.big5.decode(v1Artist), "劉若英")
     }
 
+    func testDocxSplitRuns() throws {
+        // 「干」與「活」在不同的格式片段，必須整段一起轉換才會得到「幹活」
+        let document = """
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>\
+        <w:p><w:r><w:rPr><w:b/></w:rPr><w:t>我们一起干</w:t></w:r><w:r><w:t xml:space="preserve">活 &amp; 头发</w:t></w:r></w:p>\
+        <w:p><w:r><w:t>干净</w:t></w:r></w:p>\
+        </w:body></w:document>
+        """
+        let core = """
+        <?xml version="1.0" encoding="UTF-8"?><cp:coreProperties xmlns:cp="c" xmlns:dc="d"><dc:title>简体标题</dc:title></cp:coreProperties>
+        """
+        let dir = try tempDir()
+        let src = dir.appendingPathComponent("src", isDirectory: true)
+        try FileManager.default.createDirectory(at: src.appendingPathComponent("word"), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: src.appendingPathComponent("docProps"), withIntermediateDirectories: true)
+        try "<Types/>".write(to: src.appendingPathComponent("[Content_Types].xml"), atomically: true, encoding: .utf8)
+        try document.write(to: src.appendingPathComponent("word/document.xml"), atomically: true, encoding: .utf8)
+        try core.write(to: src.appendingPathComponent("docProps/core.xml"), atomically: true, encoding: .utf8)
+        let docx = dir.appendingPathComponent("测试.docx")
+        try OfficeConverter.run("/usr/bin/zip", ["-q", "-r", docx.path, "."], in: src)
+
+        var options = ConversionOptions()
+        options.overwrite = true
+        options.convertFileNames = false
+        FileProcessor(converter: Self.converter, options: options).process([docx]) { _ in }
+
+        let out = dir.appendingPathComponent("out", isDirectory: true)
+        try OfficeConverter.run("/usr/bin/unzip", ["-q", docx.path, "-d", out.path])
+        let xml = try String(contentsOf: out.appendingPathComponent("word/document.xml"), encoding: .utf8)
+        XCTAssertTrue(xml.contains("<w:t>我們一起幹</w:t>"), xml)
+        XCTAssertTrue(xml.contains("<w:t xml:space=\"preserve\">活 &amp; 頭髮</w:t>"), xml)
+        XCTAssertTrue(xml.contains("<w:t>乾淨</w:t>"), xml)
+        XCTAssertTrue(xml.contains("<w:rPr><w:b/></w:rPr>"), xml)
+        let props = try String(contentsOf: out.appendingPathComponent("docProps/core.xml"), encoding: .utf8)
+        XCTAssertTrue(props.contains("<dc:title>簡體標題</dc:title>"), props)
+    }
+
+    func testDistribute() {
+        XCTAssertEqual(OfficeConverter.distribute("幹活好", like: ["干", "活好"]), ["幹", "活好"])
+        XCTAssertEqual(OfficeConverter.distribute("abcd", like: ["a", "b"]), ["abcd", ""])
+        XCTAssertEqual(OfficeConverter.unescape("a&amp;b&#x4E2D;&#25991;&lt;"), "a&b中文<")
+    }
+
     private func tempDir() throws -> URL {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
