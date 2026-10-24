@@ -29,6 +29,7 @@ final class ConvertZZCoreTests: XCTestCase {
             "吕后": "呂后", "朴正熙": "朴正熙", "牵制": "牽制", "系统": "系統", "余杰": "余杰",
             "征战": "征戰", "干嘛": "幹嘛", "干不下去": "幹不下去", "台面": "檯面", "轮回": "輪迴",
             "我在这里等你": "我在這裡等你", "着急地看着": "著急地看著", "他用鼠标打开了网络": "他用滑鼠打開了網路",
+            "看视频": "看影片", "视频会议": "視訊會議", "视频聊天": "視訊聊天",
         ]
         for (simp, trad) in cases {
             XCTAssertEqual(Self.converter.convert(simp, .toTraditional), trad, simp)
