@@ -20,7 +20,7 @@ public struct ID3Converter {
     }
 
     public func process(fileAt url: URL) throws -> Result {
-        var data = try Data(contentsOf: url, options: .mappedIfSafe)
+        var data = try Data(contentsOf: url)
         var changed = false
         var notes: [String] = []
 
