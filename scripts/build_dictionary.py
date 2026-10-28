@@ -8,6 +8,7 @@ Type 以 "ST:" 開頭的只用於簡→繁，"TS:" 開頭的只用於繁→簡�
           > MediaWiki 簡繁 > OpenCC 單字
   繁→簡：ConvertZZ 原版 > OpenCC 詞組 > MediaWiki 繁簡 > OpenCC 單字
 簡→繁的結果會再套用 OpenCC 台灣異體字（爲→為、着→著…）。
+MediaWiki 只採用詞組，單字一律以 OpenCC 為準。
 """
 import json
 from pathlib import Path
@@ -74,19 +75,23 @@ def main():
     # 台灣用詞的 key 是繁體，轉成簡體 key 以便一次轉換
     for t, tw in opencc("TWPhrases"):
         add("ST:OpenCC-TWPhrases", simplify_chars(t), to_tw(tw))
+    # MediaWiki 的單字對照（面→麵、里→裡、喂→餵…）脫離上下文時常常是錯的，只採用詞組
     for k, v in mw["zh2TW"].items():
-        add("ST:MediaWiki-zh2TW", simplify_chars(k), to_tw(v))
+        if len(k) > 1:
+            add("ST:MediaWiki-zh2TW", simplify_chars(k), to_tw(v))
     for s, t in opencc("STPhrases"):
         add("ST:OpenCC-STPhrases", s, to_tw(t))
     for s, t in mw["zh2Hant"].items():
-        add("ST:MediaWiki-zh2Hant", s, to_tw(t))
+        if len(s) > 1:
+            add("ST:MediaWiki-zh2Hant", s, to_tw(t))
     for s, t in opencc("STCharacters"):
         add("ST:OpenCC-STCharacters", s, to_tw(t))
 
     for t, s in opencc("TSPhrases"):
         add("TS:OpenCC-TSPhrases", s, t)
     for t, s in mw["zh2Hans"].items():
-        add("TS:MediaWiki-zh2Hans", s, t)
+        if len(t) > 1:
+            add("TS:MediaWiki-zh2Hans", s, t)
     for t, s in opencc("TSCharacters"):
         add("TS:OpenCC-TSCharacters", s, t)
     # 台灣異體字也要能轉回簡體
