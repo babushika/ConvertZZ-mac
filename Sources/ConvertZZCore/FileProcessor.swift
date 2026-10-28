@@ -30,6 +30,17 @@ public enum InputEncoding: String, CaseIterable, Identifiable, Codable {
     }
 }
 
+public enum OutputMode: String, CaseIterable, Identifiable, Codable {
+    /// 輸出到旁邊的「ConvertZZ 輸出」資料夾
+    case outputFolder
+    /// 在原檔旁另存一份，檔名加上 .zh-tw（簡→繁）或 .zh-cn（繁→簡）
+    case suffix
+    /// 直接覆蓋原檔
+    case overwrite
+
+    public var id: String { rawValue }
+}
+
 public struct ConversionOptions: Codable, Equatable {
     public var direction: ConversionDirection = .toTraditional
     public var inputEncoding: InputEncoding = .auto
@@ -37,11 +48,48 @@ public struct ConversionOptions: Codable, Equatable {
     public var convertContent = true
     public var convertFileNames = true
     public var convertID3 = true
-    /// true：直接覆蓋原檔；false：輸出到旁邊的「ConvertZZ 輸出」資料夾
-    public var overwrite = false
+    public var outputMode: OutputMode = .outputFolder
     public var textExtensions = "txt,srt,ass,ssa,lrc,cue,csv,md,html,htm,xml,json,ini,nfo,log,sub,vtt,m3u,m3u8"
 
     public init() {}
+
+    private enum CodingKeys: String, CodingKey {
+        case direction, inputEncoding, outputEncoding, convertContent, convertFileNames, convertID3
+        case outputMode, textExtensions
+        case overwrite // 1.2.1 以前的設定
+    }
+
+    // 逐項讀取，新增欄位時舊版存下的設定仍可沿用
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        direction = try c.decodeIfPresent(ConversionDirection.self, forKey: .direction) ?? direction
+        inputEncoding = try c.decodeIfPresent(InputEncoding.self, forKey: .inputEncoding) ?? inputEncoding
+        outputEncoding = try c.decodeIfPresent(OutputEncoding.self, forKey: .outputEncoding) ?? outputEncoding
+        convertContent = try c.decodeIfPresent(Bool.self, forKey: .convertContent) ?? convertContent
+        convertFileNames = try c.decodeIfPresent(Bool.self, forKey: .convertFileNames) ?? convertFileNames
+        convertID3 = try c.decodeIfPresent(Bool.self, forKey: .convertID3) ?? convertID3
+        textExtensions = try c.decodeIfPresent(String.self, forKey: .textExtensions) ?? textExtensions
+        if let mode = try c.decodeIfPresent(OutputMode.self, forKey: .outputMode) {
+            outputMode = mode
+        } else if try c.decodeIfPresent(Bool.self, forKey: .overwrite) == true {
+            outputMode = .overwrite
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(direction, forKey: .direction)
+        try c.encode(inputEncoding, forKey: .inputEncoding)
+        try c.encode(outputEncoding, forKey: .outputEncoding)
+        try c.encode(convertContent, forKey: .convertContent)
+        try c.encode(convertFileNames, forKey: .convertFileNames)
+        try c.encode(convertID3, forKey: .convertID3)
+        try c.encode(outputMode, forKey: .outputMode)
+        try c.encode(textExtensions, forKey: .textExtensions)
+    }
+
+    /// 另存模式加在檔名的字尾
+    public var fileSuffix: String { direction == .toTraditional ? "zh-tw" : "zh-cn" }
 
     var extensionSet: Set<String> {
         Set(textExtensions.lowercased().split(whereSeparator: { $0 == "," || $0 == " " }).map(String.init))
@@ -76,10 +124,10 @@ public final class FileProcessor {
                 log(ProcessLog(kind: .failure, path: root.path, message: "找不到檔案"))
                 continue
             }
-            if options.overwrite {
-                processInPlace(root, isDirectory: isDir.boolValue, log: log)
-            } else {
-                processToOutput(root, isDirectory: isDir.boolValue, log: log)
+            switch options.outputMode {
+            case .overwrite: processInPlace(root, isDirectory: isDir.boolValue, log: log)
+            case .outputFolder: processToOutput(root, isDirectory: isDir.boolValue, log: log)
+            case .suffix: processWithSuffix(root, isDirectory: isDir.boolValue, log: log)
             }
         }
     }
@@ -129,6 +177,46 @@ public final class FileProcessor {
             }
             convertFile(at: dest, log: log)
         }
+    }
+
+    // MARK: - 另存為 .zh-tw / .zh-cn
+
+    private static let suffixes: Set<String> = ["zh-tw", "zh-cn"]
+
+    private func processWithSuffix(_ root: URL, isDirectory: Bool, log: (ProcessLog) -> Void) {
+        let files = isDirectory ? enumerateFiles(in: root) : [root]
+        for file in files {
+            // 已經是轉換結果的檔案（例如 a.zh-tw.txt）不再處理
+            let stem = file.deletingPathExtension()
+            if Self.suffixes.contains(stem.pathExtension.lowercased()) { continue }
+            guard isConvertible(file) else {
+                if !isDirectory {
+                    log(ProcessLog(kind: .skipped, path: file.path, message: "不支援的檔案類型"))
+                }
+                continue
+            }
+            var name = stem.lastPathComponent
+            if options.convertFileNames { name = converter.convert(name, options.direction) }
+            name += "." + options.fileSuffix
+            if !file.pathExtension.isEmpty { name += "." + file.pathExtension }
+            let dest = file.deletingLastPathComponent().appendingPathComponent(name)
+            do {
+                if fm.fileExists(atPath: dest.path) { try fm.removeItem(at: dest) }
+                try fm.copyItem(at: file, to: dest)
+            } catch {
+                log(ProcessLog(kind: .failure, path: file.path, message: "複製失敗：\(error.localizedDescription)"))
+                continue
+            }
+            convertFile(at: dest, log: log)
+        }
+    }
+
+    /// 這個檔案在目前的設定下會不會被轉換
+    private func isConvertible(_ url: URL) -> Bool {
+        let ext = url.pathExtension.lowercased()
+        if ext == "mp3" { return options.convertID3 }
+        guard options.convertContent else { return false }
+        return OfficeConverter.supportedExtensions.contains(ext) || options.extensionSet.contains(ext)
     }
 
     // MARK: - 單一檔案

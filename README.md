@@ -9,7 +9,7 @@
 - 轉換 Office 文件（.docx / .xlsx / .pptx）：本文、頁首頁尾、註腳、註解、試算表儲存格、投影片與備忘稿、文件屬性，保留所有格式；舊版 .doc / .xls / .ppt 請先另存為新格式
 - 轉換檔名、資料夾名稱
 - 轉換 MP3 的 ID3v1 / v2.3 / v2.4 標籤（會修正 GBK / BIG5 被當成 Latin-1 的亂碼）
-- 可以輸出到「ConvertZZ 輸出」資料夾（預設，不動原檔），也可以直接覆蓋原檔
+- 三種輸出方式：輸出到「ConvertZZ 輸出」資料夾（預設）、在原檔旁另存為 `檔名.zh-tw.副檔名`（繁→簡時為 `.zh-cn`），或直接覆蓋原檔
 
 ## 下載
 到 [Releases](../../releases) 下載 `ConvertZZ-macOS.zip`。App 沒有經過 Apple 公證，第一次開啟要在 Finder 中按右鍵 →「打開」。

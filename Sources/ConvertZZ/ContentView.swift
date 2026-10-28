@@ -74,9 +74,10 @@ struct ContentView: View {
                 Toggle("轉換 MP3 標籤", isOn: $model.options.convertID3)
             }
 
-            Picker("輸出方式", selection: $model.options.overwrite) {
-                Text("輸出到「\(FileProcessor.outputFolderName)」資料夾").tag(false)
-                Text("直接覆蓋原檔").tag(true)
+            Picker("輸出方式", selection: $model.options.outputMode) {
+                Text("輸出到「\(FileProcessor.outputFolderName)」資料夾").tag(OutputMode.outputFolder)
+                Text("在原檔旁另存為 檔名.\(model.options.fileSuffix).副檔名").tag(OutputMode.suffix)
+                Text("直接覆蓋原檔").tag(OutputMode.overwrite)
             }
 
             TextField("文字檔副檔名", text: $model.options.textExtensions)

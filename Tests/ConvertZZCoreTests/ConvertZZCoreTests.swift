@@ -67,13 +67,45 @@ final class ConvertZZCoreTests: XCTestCase {
         try TextEncoding.gbk.encode("这是一个测试").write(to: file)
 
         var options = ConversionOptions()
-        options.overwrite = false
+        options.outputMode = .outputFolder
         FileProcessor(converter: Self.converter, options: options).process([file]) { _ in }
 
         let out = dir.appendingPathComponent(FileProcessor.outputFolderName).appendingPathComponent("簡體歌詞.txt")
         XCTAssertEqual(try String(contentsOf: out, encoding: .utf8), "這是一個測試")
         // 原檔不動
         XCTAssertEqual(EncodingDetector.decode(try Data(contentsOf: file))?.text, "这是一个测试")
+    }
+
+    func testSuffixMode() throws {
+        let dir = try tempDir()
+        let file = dir.appendingPathComponent("简体歌词.txt")
+        try Data("这是一个测试".utf8).write(to: file)
+        try Data("png".utf8).write(to: dir.appendingPathComponent("图片.png"))
+
+        var options = ConversionOptions()
+        options.outputMode = .suffix
+        FileProcessor(converter: Self.converter, options: options).process([dir]) { _ in }
+
+        let out = dir.appendingPathComponent("簡體歌詞.zh-tw.txt")
+        XCTAssertEqual(try String(contentsOf: out, encoding: .utf8), "這是一個測試")
+        XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), "这是一个测试")
+        // 不支援的檔案不複製；再處理一次也不會產生 .zh-tw.zh-tw
+        FileProcessor(converter: Self.converter, options: options).process([dir]) { _ in }
+        let names = try FileManager.default.contentsOfDirectory(atPath: dir.path).sorted()
+        XCTAssertEqual(names, ["图片.png", "简体歌词.txt", "簡體歌詞.zh-tw.txt"])
+
+        options.direction = .toSimplified
+        options.convertFileNames = false
+        FileProcessor(converter: Self.converter, options: options).process([out]) { _ in }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.appendingPathComponent("簡體歌詞.zh-tw.zh-cn.txt").path))
+    }
+
+    func testLegacyOverwriteSetting() throws {
+        let old = #"{"direction":"toSimplified","overwrite":true}"#
+        let options = try JSONDecoder().decode(ConversionOptions.self, from: Data(old.utf8))
+        XCTAssertEqual(options.outputMode, .overwrite)
+        XCTAssertEqual(options.direction, .toSimplified)
+        XCTAssertTrue(options.convertContent)
     }
 
     func testOverwriteRenamesFolders() throws {
@@ -83,7 +115,7 @@ final class ConvertZZCoreTests: XCTestCase {
         try Data("简单".utf8).write(to: sub.appendingPathComponent("说明.txt"))
 
         var options = ConversionOptions()
-        options.overwrite = true
+        options.outputMode = .overwrite
         FileProcessor(converter: Self.converter, options: options).process([sub]) { _ in }
 
         let out = dir.appendingPathComponent("專輯/說明.txt")
@@ -148,7 +180,7 @@ final class ConvertZZCoreTests: XCTestCase {
         try OfficeConverter.run("/usr/bin/zip", ["-q", "-r", docx.path, "."], in: src)
 
         var options = ConversionOptions()
-        options.overwrite = true
+        options.outputMode = .overwrite
         options.convertFileNames = false
         FileProcessor(converter: Self.converter, options: options).process([docx]) { _ in }
 
